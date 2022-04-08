@@ -13,6 +13,7 @@
 ;; what is the car of (a b c)
 ;; I will use clojure's keyword as atom
 ;; Maybe I can use quote as well?
+;; '(a b c) is kind of the same
 (first '(:a :b :c))
 
 (first '((:a :b :c) :x :y :z))
@@ -204,12 +205,12 @@
     :else (or (= (first l) a)
               (recur a (rest l)))))
 
-;; I will only use recur next time
+;; You should know what "recur" do
 (defn member? [a l]
   (cond
     (empty? l) false
     :else (or (= (first l) a)
-              (member? a (rest l)))))
+              (recur a (rest l)))))
 
 (let [a :poached
       lat '(:fried :eggs :and :scrambled :eggs)]
@@ -786,4 +787,221 @@
 ;; - or a list consed onto a list
 
 ;; The Fourth Commandment (final version)
-;;
+;; Always change at least one argument while recurring
+;; When recurring on al ist of atoms, use (rest lat)
+;; When recurring on a list of S-expressions, l, use (first l) and (rest l)
+;; if (seq? (first l)) is true.
+;; It must be changed to be closer to termination.
+;; The changing argument must be tested in the termination condition
+;; when using rest, test termination with empty?
+;; when using dec , test termination with zero?
+
+(defn occur*-won't-work [a l]
+  (let [go (fn [a l acc]
+             (cond
+               (empty? l) acc
+               (seq? (first l)) (recur a (first l) acc)
+               (= a (first l))  (recur a (rest l) (inc acc))
+               :else            (recur a (rest l) acc)))]
+    (go a l 0)))
+
+(defn occur* [a l]
+  (cond
+    (empty? l) 0
+    ; (seq? (first l)) (recur a (first l)) ;; why it's wrong?
+    ; you have to add those branch together
+    ; only recur won't do anything
+    (seq? (first l)) (o+ (occur* a (first l)) (occur* a (rest l)))
+    (= a (first l))  (inc (occur* a (rest l)))
+    :else            (recur a (rest l))))
+
+(let [l '((:banana)
+         (:split ((((:banana :ice)))
+                  (:cream (:banana))
+                  :sherbet))
+         (:banana)
+         (:bread)
+         (:banana :brandy))
+      a :banana]
+  (occur* a l))
+
+(defn subst* [new old l]
+  (let [x  (first l)
+        xs (rest  l)]
+    (cond
+      (empty? l) '()
+      (seq? x)    (cons (subst* new old x) (subst* new old xs))
+      (= old x)   (cons new (subst* new old xs))
+      :else       (cons x (subst* new old xs)))))
+
+(let [l '((:banana)
+          (:split ((((:banana :ice)))
+                   (:cream (:banana))
+                   :sherbet))
+          (:banana)
+          (:bread)
+          (:banana :brandy))
+      old :banana
+      new :orange]
+  (subst* new old l))
+
+(defn insertL* [new old l]
+  (let [x  (first l)
+        xs (rest  l)]
+    (cond
+      (empty? l) '()
+      (seq? x)    (cons (insertL* new old x) (insertL* new old xs))
+      (= old x)   (cons new (cons old (insertL* new old xs)))
+      :else       (cons x (insertL* new old xs)))))
+
+(let [l '((:how :much (:wood))
+          :could
+          ((:a (:wood) :chuck))
+          (((:chuck)))
+          (:if (:a) ((:wood :chuck)))
+          :could :chuck :wood)
+      new :pecker
+      old :chuck]
+  (insertL* new old l))
+
+(defn member* [a l]
+  (let [x  (first l)
+        xs (rest  l)]
+    (cond
+      (empty? l) false
+      (seq? x)   (or (member* a x) (member* a xs))
+      (= a x)    true
+      :else      (recur a xs))))
+
+(let [a :chips
+      l '((:potato) (:chips ((:with) :fish) (:chips)))]
+  (member* a l))
+
+;; The function leftmost finds the leftmost element in a non-empty list of S-expressions
+;; that does not contain the empty list
+
+;; Is leftmost a *-function?
+;; It works on list of S-expressions, but it only recurs on the car (so the answer is no)
+;; We agreed that leftmost works on non-empty lists that don't contain empty lists
+
+(defn leftmost [l]
+  (cond
+    (empty? l) nil
+    (seq? (first l)) (recur (first l))
+    :else            (first l)))
+
+(leftmost '((:potato) (:chips ((:with) :fish) (:chips))))
+(leftmost '(((:hot) (:tuna (:and))) :cheese))
+(leftmost '(((() :four)) 17 (:seventeen)))
+(leftmost '())
+
+;; What's eqlist?
+;; eqlist? -> [a] -> [a] -> Bool
+;; a function that determines if two lists are equal
+;; How many questions will eqlist? have to ask about its arguements?
+;; Nine
+;; Each argument may be either
+;; - empty
+;; - an atom consed onto a list
+;; - a list consed onto a list
+
+;; check the original eqlist? implementation
+;; I don't care it so much
+(defn eqlist? [l1 l2]
+  (let [x (first l1)
+        y (first l2)
+        xs (rest l1)
+        ys (rest l2)]
+    (cond
+      (and (empty? l1) (empty? l2)) true
+      (and (seq? x) (seq? y)) (recur x y)
+      (= x y) (recur xs ys)                                 ; That's cheating because = can compare list
+      :else   false)))                                      ; But the appearance of "seq?" indeed simplify things a lot
+
+(let [l1 '(:strawberry :ice :cream)
+      l2 '(:strawberry :ice :cream)]
+  (eqlist? l1 l2))
+
+(let [l1 '(:strawberry :ice :cream)
+      l2 '(:strawberry :cream :ice)]
+  (eqlist? l1 l2))
+
+(let [l1 '(:beef ((:sausage)) (:and (:soda)))
+      l2 '(:beef ((:sausage)) (:and (:soda)))]
+  (eqlist? l1 l2))
+
+(let [l1 '(:beef ((:sausage)) (:and (:soda)))
+      l2 '(:beef ((:salami)) (:and (:soda)))]
+  (eqlist? l1 l2))
+
+;; The Sixth Commandment
+;; Simplify only after the function is correct
+
+;; Ch6. Shadows
+
+;; What is (quote a)
+;; 'a
+;; What is (quote +)
+;; The atom +, not the operation +
+
+;; The Eighth Commandment
+;; Use help function to abstract from representation
+
+;; No idea what this chapter is about
+;; except (1 2 3) is ((()) (() ()) (() () ()))
+
+;; Ch6. Friends and Relations
+
+;; Set. Element that not appear more than once
+;; clojure already has set?
+(defn isSet? [lat]
+  (cond
+    (empty? lat) true
+    (member? (first lat) (rest lat)) false
+    :else                            (recur (rest lat))))
+
+(defn mk-set' [lat]
+  (cond
+    (empty? lat) '()
+    (member? (first lat) (rest lat)) (recur (rest lat))
+    :else                            (cons (first lat) (mk-set' (rest lat)))))
+
+(defn mk-set [lat]
+  (cond
+    (empty? lat) '()
+    :else (cons (first lat) (mk-set (multirember (first lat) (rest lat))))))
+
+;; the function mk-set remembers to `cons` the first atom in the lat onto the result of the natural recursion
+;; after removing all occurrences of the first atom from the rest of the lat
+
+(mk-set' '(:apple :peach :pear :peach :plum :apple :lemon :peach))
+(mk-set  '(:apple :peach :pear :peach :plum :apple :lemon :peach))
+
+(defn unordered-subset? [setA setB]
+  (let [[set1 set2] (if (> (length setA) (length setB)) [setB setA] [setA setB]) ; remove this line if order matters
+        x  (first set1) y  (first set2)
+        xs (rest set1)  ys (rest set2)]
+    (cond
+      ; (or (empty? set1) (empty? set2)) true
+      ;; we already know that set1 will be the smaller set
+      (empty? set1) true
+      :else (and (member? x set2) (subset? xs set2)))))
+
+(defn subset? [set1 set2]
+  (let [x  (first set1) xs (rest set1)]
+    (cond
+      ; (or (empty? set1) (empty? set2)) true
+      ;; we already know that set1 will be the smaller set
+      (empty? set1) true
+      :else (and (member? x set2) (subset? xs set2)))))
+
+(let [set1 '(5 :chicken :wings)
+      set2 '(5 :hamburgers 2 :pieces :fried :chicken :and :light :duckling :wings)]
+  (subset? set1 set2))
+
+(let [set1 '(4 :pounds :of :horseradish)
+      set2 '(:four :poinds :chicken :and 5 :ounces :horseradish)]
+  (subset? set1 set2))
+
+(defn eqset? [set1 set2]
+  (and (subset? set1 set2) (subset? set2 set1)))
