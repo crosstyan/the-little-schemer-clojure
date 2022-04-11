@@ -1,6 +1,7 @@
 (ns the-little-schemer.ch1)
 (require '[clojure.core.match :refer [match]])
 
+
 ;; http://software-ninja-ninja.blogspot.com/2011/08/clojure-patterns-cons-car-and-cdr.html
 ;; https://www.gnu.org/software/emacs/manual/html_node/eintr/car-_0026-cdr.html
 ;; The CAR of a list is, quite simply, the first item in the list.
@@ -11,6 +12,14 @@
 ;; I will use clojure's keyword as atom
 ;; Maybe I can use quote as well?
 ;; '(a b c) is kind of the same
+
+;; I MADE A MISTAKE
+;; I should have use symbol as atom
+;; symbol? is the same as atom?
+;; but I'm lazy to change all of them
+;; Actually there's not much difference until later
+;; when you're going to write parser or other stuff
+
 (first '(:a :b :c))
 
 (first '((:a :b :c) :x :y :z))
